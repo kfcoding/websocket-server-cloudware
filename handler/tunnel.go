@@ -2,8 +2,6 @@ package handler
 
 import (
 	"github.com/gorilla/websocket"
-	"sync"
-	"log"
 )
 
 type Tunnel struct {
@@ -12,11 +10,9 @@ type Tunnel struct {
 	Client *websocket.Conn
 	Done   chan string
 	Timer  chan bool
+	Pod    string
+	PodIP  string
 }
-
-var lock sync.Mutex
-var tunnels = make(map[string]*Tunnel)
-var cloudwares = make(map[string]int)
 
 // from client to pulsar
 func (tunnel *Tunnel) Iocopy() {
@@ -46,26 +42,5 @@ func (tunnel *Tunnel) Iocopy2() {
 			return
 		}
 		tunnel.Client.WriteMessage(websocket.TextMessage, msg)
-	}
-}
-
-func addToTunnels(key string, tunnel *Tunnel) {
-	lock.Lock()
-	tunnels[key] = tunnel
-	lock.Unlock()
-}
-
-func deleteFromTunnels(key string) {
-	lock.Lock()
-	delete(tunnels, key)
-	lock.Unlock()
-}
-
-func Run(done chan string) {
-	for {
-		select {
-		case token := <-done:
-			log.Print(token) //	websocket disconnected
-		}
 	}
 }

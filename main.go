@@ -5,9 +5,10 @@ import (
 	"log"
 	"net/http"
 	"github.com/websocket-server-cloudware/handler"
+	"github.com/websocket-server-cloudware/config"
 )
 
-var addr = flag.String("addr", "0.0.0.0:8080", "http service address")
+var addr = flag.String("addr", config.SERVER_ADDRESS, "http service address")
 
 func main() {
 	done := make(chan string, 1000)
@@ -20,6 +21,6 @@ func main() {
 
 	flag.Parse()
 	http.Handle("/api/", handle)
-	http.HandleFunc("/api/websocket/cloudware/connect/", handler.Upgrade)
+	http.HandleFunc("/api/websocket/connect/", handler.Upgrade)
 	log.Fatal(http.ListenAndServe(*addr, nil))
 }

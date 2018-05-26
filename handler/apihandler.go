@@ -9,14 +9,11 @@ import (
 	"os/signal"
 	"time"
 	"log"
+	"github.com/websocket-server-cloudware/config"
 )
 
 type APIHandler struct {
 	Done chan string
-}
-
-type CloudwareResponse struct {
-	Id string `json:"id"`
 }
 
 func CreateHTTPAPIHandler(done chan string) (http.Handler, error) {
@@ -33,16 +30,21 @@ func CreateHTTPAPIHandler(done chan string) (http.Handler, error) {
 	wsContainer.Add(apiV1Ws)
 
 	apiV1Ws.Route(
-		apiV1Ws.GET("/websocket/cloudware/gettoken/{namespace}/{pod}/{container}").
-			To(apiHandler.handleCloudware).
-			Writes(CloudwareResponse{}))
+		apiV1Ws.GET("/websocket/getws/{pod}/{ip}").
+			To(apiHandler.handleCloudware))
 
 	return wsContainer, nil
 }
 
 func (apiHandler *APIHandler) handleCloudware(request *restful.Request, response *restful.Response) {
+	// get params from request path
+	var (
+		pod = request.PathParameter("pod")
+		ip  = request.PathParameter("ip")
+	)
+
 	// gen token
-	sessionId, err := genTerminalSessionId()
+	token, err := genCloudwareSessionId()
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 		return
@@ -50,32 +52,34 @@ func (apiHandler *APIHandler) handleCloudware(request *restful.Request, response
 
 	// add to tunnels
 	timer := make(chan bool)
-	addToTunnels(sessionId, &Tunnel{
-		Id:    sessionId,
+	addToTunnels(pod, token, &Tunnel{
+		Id:    token,
 		Done:  apiHandler.Done,
 		Timer: timer,
+		Pod:   pod,
+		PodIP: ip,
 	})
 
 	// return result
 	response.Header().Set("Access-Control-Allow-Origin", "*")
-	response.WriteHeaderAndEntity(http.StatusOK, CloudwareResponse{Id: sessionId})
+	response.WriteHeaderAndEntity(http.StatusOK, "ws://"+config.CLOUDWARE_WSS_DOMAIN+"/api/websocket/connect/"+token)
 
+	// add a timer, if client not connect ws in a minute, channel will be delete
 	go func() {
-		// add a timer, if client not connect ws in a minute, channel will be delete
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
 		ticker := time.NewTicker(time.Second * 10)
 		defer func() {
 			ticker.Stop()
 			close(timer)
-			log.Print("terminal thread")
+			log.Print("terminal thread : ", token)
 		}()
 		select {
 		case <-timer:
 			return
 		case <-ticker.C:
-			log.Print("time out: ", sessionId)
-			deleteFromTunnels(sessionId)
+			log.Print("time out: ", token)
+			deleteFromTunnels(pod, token)
 			return
 		case <-interrupt:
 			log.Println("system interrupt")
@@ -84,7 +88,7 @@ func (apiHandler *APIHandler) handleCloudware(request *restful.Request, response
 	}()
 }
 
-func genTerminalSessionId() (string, error) {
+func genCloudwareSessionId() (string, error) {
 	bytes := make([]byte, 16)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
