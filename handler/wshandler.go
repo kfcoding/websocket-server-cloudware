@@ -7,6 +7,9 @@ import (
 	"strings"
 	"net/url"
 	"sync"
+	"io/ioutil"
+	"fmt"
+	"github.com/websocket-server-cloudware/config"
 )
 
 var (
@@ -88,6 +91,17 @@ func Run(done chan string) {
 		case token := <-done:
 			if tunnel, ok := tunnels[token]; ok {
 				deleteFromTunnels(token, tunnel.Pod)
+
+				// call api to delete container
+				url := config.API_SERVER_ADDR + "/cloudware/deleteContainer"
+				req, _ := http.NewRequest("DELETE", url, nil)
+				req.Header.Add("podName", tunnel.Pod)
+				req.Header.Add("type", "0")
+				res, _ := http.DefaultClient.Do(req)
+				defer res.Body.Close()
+				body, _ := ioutil.ReadAll(res.Body)
+				fmt.Println(string(body))
+
 				log.Print("delete tunnel succeed!")
 			} else {
 				log.Print("delete tunnel error!")
