@@ -10,10 +10,9 @@ import (
 )
 
 var (
-	tunnels    = make(map[string]*Tunnel)
-	cloudwares = make(map[string]int)
-	lock       sync.Mutex
-	upgrader   = websocket.Upgrader{}
+	tunnels  = make(map[string]*Tunnel)
+	lock     sync.Mutex
+	upgrader = websocket.Upgrader{}
 )
 
 func Upgrade(w http.ResponseWriter, r *http.Request) {
@@ -67,21 +66,15 @@ func Upgrade(w http.ResponseWriter, r *http.Request) {
 	go tunnel.Iocopy2()
 }
 
-func addToTunnels(pod, token string, tunnel *Tunnel) {
+func addToTunnels(token string, tunnel *Tunnel) {
 	lock.Lock()
 	tunnels[token] = tunnel
-	log.Print(cloudwares[pod])
-	cloudwares[pod] = cloudwares[pod] + 1
 	lock.Unlock()
 }
 
-func deleteFromTunnels(pod, token string) {
+func deleteFromTunnels(token string) {
 	lock.Lock()
 	delete(tunnels, token)
-	cloudwares[pod] = cloudwares[pod] - 1
-	if cloudwares[pod] <= 0 {
-		delete(cloudwares, pod)
-	}
 	lock.Unlock()
 }
 
@@ -89,11 +82,9 @@ func Run(done chan string) {
 	for {
 		select {
 		case token := <-done:
-			log.Print(token)
-
 			if tunnel, ok := tunnels[token]; ok {
-				deleteFromTunnels(token, tunnel.Pod)
-
+				deleteFromTunnels(token)
+				log.Print(tunnel.Pod)
 				//// call api to delete container
 				//url := config.API_SERVER_ADDR + "/cloudware/deleteContainer"
 				//req, _ := http.NewRequest("DELETE", url, nil)

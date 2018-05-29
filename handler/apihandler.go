@@ -52,7 +52,7 @@ func (apiHandler *APIHandler) handleCloudware(request *restful.Request, response
 
 	// add to tunnels
 	timer := make(chan bool)
-	addToTunnels(pod, token, &Tunnel{
+	addToTunnels(token, &Tunnel{
 		Id:    token,
 		Done:  apiHandler.Done,
 		Timer: timer,
@@ -79,7 +79,7 @@ func (apiHandler *APIHandler) handleCloudware(request *restful.Request, response
 			return
 		case <-ticker.C:
 			log.Print("time out: ", token)
-			deleteFromTunnels(pod, token)
+			deleteFromTunnels(token)
 			return
 		case <-interrupt:
 			log.Println("system interrupt")
