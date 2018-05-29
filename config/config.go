@@ -9,4 +9,4 @@ const CLOUDWARE_WSS_ADDR = "http://cloudware.wss.kfcoding.com"
 const TERMINAL_WSS_DOMAIN = "terminal.wss.kfcoding.com"
 const TERMINAL_WSS_ADDR = "http://terminal.wss.kfcoding.com"
 
-const SERVER_ADDRESS = "0.0.0.0:8080"
+const SERVER_ADDRESS = "0.0.0.0:9090"

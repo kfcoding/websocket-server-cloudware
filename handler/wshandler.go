@@ -7,9 +7,6 @@ import (
 	"strings"
 	"net/url"
 	"sync"
-	"io/ioutil"
-	"fmt"
-	"github.com/websocket-server-cloudware/config"
 )
 
 var (
@@ -49,15 +46,18 @@ func Upgrade(w http.ResponseWriter, r *http.Request) {
 	client, err = upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
+		tunnel.Done <- tunnel.Id
 		return
 	}
 
 	// get pulsar conn
-	u := url.URL{Scheme: "ws://", Host: tunnel.PodIP + ":9800", Path: ""}
+	u := url.URL{Scheme: "ws", Host: tunnel.PodIP + ":9800", Path: "/"}
 	pulsar, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		client.Close()
-		log.Fatal("dial pulsar : ", err)
+		log.Print("dial pulsar : ", err)
+		tunnel.Done <- tunnel.Id
+		return
 	}
 
 	// bind client and pulsar conn
@@ -89,18 +89,20 @@ func Run(done chan string) {
 	for {
 		select {
 		case token := <-done:
+			log.Print(token)
+
 			if tunnel, ok := tunnels[token]; ok {
 				deleteFromTunnels(token, tunnel.Pod)
 
-				// call api to delete container
-				url := config.API_SERVER_ADDR + "/cloudware/deleteContainer"
-				req, _ := http.NewRequest("DELETE", url, nil)
-				req.Header.Add("podName", tunnel.Pod)
-				req.Header.Add("type", "0")
-				res, _ := http.DefaultClient.Do(req)
-				defer res.Body.Close()
-				body, _ := ioutil.ReadAll(res.Body)
-				fmt.Println(string(body))
+				//// call api to delete container
+				//url := config.API_SERVER_ADDR + "/cloudware/deleteContainer"
+				//req, _ := http.NewRequest("DELETE", url, nil)
+				//req.Header.Add("podName", tunnel.Pod)
+				//req.Header.Add("type", "0")
+				//res, _ := http.DefaultClient.Do(req)
+				//defer res.Body.Close()
+				//body, _ := ioutil.ReadAll(res.Body)
+				//fmt.Println(string(body))
 
 				log.Print("delete tunnel succeed!")
 			} else {
